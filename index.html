@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasyFix 輕便報修管理系統 (坤侑科技 1141021版)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Microsoft JhengHei', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', 'Microsoft JhengHei', sans-serif;
+            background-color: #f8fafc;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .fade-in {
+            animation: fadeIn 0.2s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 坤侑科技 1141021 版 A4 列印專用樣式 */
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #officialFormModal, #officialFormModal * {
+                visibility: visible !important;
+            }
+            #officialFormModal {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                overflow: visible !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-border {
+                border: 1px solid #000 !important;
+            }
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Logo & System Name -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+                        <i class="fa-solid fa-wrench text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-lg text-slate-900 leading-tight">EasyFix 報修系統</h1>
+                        <p class="text-xs text-slate-500">坤侑貿易股份有限公司 設備維修單整合</p>
+                    </div>
+                </div>
+
+                <!-- Right Action Controls -->
+                <div class="flex items-center space-x-3 sm:space-x-4">
+                    <!-- Role Switcher Toggle -->
+                    <div class="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200">
+                        <button id="roleUserBtn" onclick="switchRole('user')" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 bg-white text-blue-600 shadow-sm">
+                            <i class="fa-solid fa-user mr-1.5"></i>報修申請者
+                        </button>
+                        <button id="roleAdminBtn" onclick="switchRole('admin')" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-900">
+                            <i class="fa-solid fa-user-gear mr-1.5"></i>維修管理者
+                        </button>
+                    </div>
+
+                    <!-- New Repair Request Button -->
+                    <button onclick="openNewTicketModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition duration-200 flex items-center space-x-1.5 active:scale-95">
+                        <i class="fa-solid fa-plus text-xs"></i>
+                        <span>我要報修</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <!-- Total Card -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">總報修案件</p>
+                    <h3 id="statTotal" class="text-2xl font-bold text-slate-900 mt-1">0</h3>
+                </div>
+                <div class="w-11 h-11 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+                    <i class="fa-solid fa-clipboard-list text-lg"></i>
+                </div>
+            </div>
+            <!-- Pending Card -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-amber-600">待處理工單</p>
+                    <h3 id="statPending" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
+                </div>
+                <div class="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <i class="fa-solid fa-clock text-lg"></i>
+                </div>
+            </div>
+            <!-- In Progress Card -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-blue-600">維修進行中</p>
+                    <h3 id="statProcessing" class="text-2xl font-bold text-blue-600 mt-1">0</h3>
+                </div>
+                <div class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <i class="fa-solid fa-screwdriver-wrench text-lg"></i>
+                </div>
+            </div>
+            <!-- Completed Card -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-emerald-600">已完工結案</p>
+                    <h3 id="statCompleted" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
+                </div>
+                <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <i class="fa-solid fa-circle-check text-lg"></i>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
+            <!-- Search Input -->
+            <div class="relative w-full md:w-80">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input type="text" id="searchInput" oninput="handleSearchFilter()" placeholder="搜尋單號、地點、發起人或關鍵字..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition">
+            </div>
+
+            <!-- Filters -->
+            <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                <!-- Status Filter -->
+                <select id="statusFilter" onchange="handleSearchFilter()" class="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                    <option value="ALL">全部狀態</option>
+                    <option value="PENDING">待處理</option>
+                    <option value="PROCESSING">維修中</option>
+                    <option value="COMPLETED">已完成</option>
+                    <option value="CANCELLED">已撤銷</option>
+                </select>
+
+                <!-- Category Filter -->
+                <select id="categoryFilter" onchange="handleSearchFilter()" class="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                    <option value="ALL">全部類別</option>
+                    <option value="水電設備">水電設備</option>
+                    <option value="網路資訊">網路資訊</option>
+                    <option value="空調冷氣">空調冷氣</option>
+                    <option value="傢俱裝潢">傢俱裝潢</option>
+                    <option value="環境安全">環境安全</option>
+                    <option value="其他項目">其他項目</option>
+                </select>
+
+                <!-- Urgency Filter -->
+                <select id="urgencyFilter" onchange="handleSearchFilter()" class="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                    <option value="ALL">全部急迫度</option>
+                    <option value="HIGH">緊急 (需即刻)</option>
+                    <option value="MEDIUM">中等 (24小時內)</option>
+                    <option value="LOW">一般 (3天內)</option>
+                </select>
+
+                <!-- View Mode Switcher -->
+                <div class="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200 ml-auto md:ml-0">
+                    <button id="viewListBtn" onclick="toggleViewMode('list')" class="p-1.5 text-xs rounded-lg transition text-blue-600 bg-white shadow-sm" title="列表模式">
+                        <i class="fa-solid fa-list-ul px-1"></i>
+                    </button>
+                    <button id="viewKanbanBtn" onclick="toggleViewMode('kanban')" class="p-1.5 text-xs rounded-lg transition text-slate-500 hover:text-slate-800" title="看板模式">
+                        <i class="fa-solid fa-table-columns px-1"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Batch Export Action -->
+        <div class="flex justify-end mb-2">
+            <button onclick="downloadBatchExcel()" class="text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 px-3 py-1.5 rounded-xl transition flex items-center space-x-1.5 shadow-sm">
+                <i class="fa-solid fa-file-excel text-emerald-600"></i>
+                <span>批次匯出坤侑制式維修清冊 (.csv)</span>
+            </button>
+        </div>
+
+        <section id="contentContainer" class="fade-in">
+            <!-- Dynamically populated via JavaScript -->
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 mt-auto py-4">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
+            EasyFix Mini Repair System &copy; 2026 - 坤侑貿易股份有限公司 設備維修申請單版型
+        </div>
+    </footer>
+
+    <div id="newTicketModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar fade-in">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-4 mb-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                        <i class="fa-solid fa-pen-to-square text-sm"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800">提出設備報修</h3>
+                </div>
+                <button onclick="closeNewTicketModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form id="newTicketForm" onsubmit="handleCreateTicket(event)" class="space-y-4">
+                <!-- Reporter Info -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">申請人姓名 <span class="text-red-500">*</span></label>
+                        <input type="text" id="reporterName" required placeholder="例：張美麗" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">聯絡電話/分機 <span class="text-red-500">*</span></label>
+                        <input type="text" id="reporterPhone" required placeholder="例：#4012 或 0912..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <!-- Category & Location -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">報修類別 <span class="text-red-500">*</span></label>
+                        <select id="ticketCategory" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                            <option value="水電設備">水電設備</option>
+                            <option value="網路資訊">網路資訊</option>
+                            <option value="空調冷氣">空調冷氣</option>
+                            <option value="傢俱裝潢">傢俱裝潢</option>
+                            <option value="環境安全">環境安全</option>
+                            <option value="其他項目">其他項目</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">故障地點 / 房號 <span class="text-red-500">*</span></label>
+                        <input type="text" id="ticketLocation" required placeholder="例：4樓 B區 專案辦公室" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <!-- Urgency & Title -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">急迫程度 <span class="text-red-500">*</span></label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="border border-slate-200 rounded-xl p-2 flex items-center justify-center space-x-1.5 cursor-pointer hover:bg-slate-50 text-xs text-slate-700">
+                            <input type="radio" name="urgency" value="LOW" checked class="text-blue-600 focus:ring-0">
+                            <span>一般 (3天內)</span>
+                        </label>
+                        <label class="border border-amber-200 bg-amber-50/30 rounded-xl p-2 flex items-center justify-center space-x-1.5 cursor-pointer text-xs text-amber-800">
+                            <input type="radio" name="urgency" value="MEDIUM" class="text-amber-600 focus:ring-0">
+                            <span>中等 (24hr內)</span>
+                        </label>
+                        <label class="border border-red-200 bg-red-50/30 rounded-xl p-2 flex items-center justify-center space-x-1.5 cursor-pointer text-xs text-red-800">
+                            <input type="radio" name="urgency" value="HIGH" class="text-red-600 focus:ring-0">
+                            <span>緊急 (即刻處理)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">報修簡述主題 <span class="text-red-500">*</span></label>
+                    <input type="text" id="ticketTitle" required placeholder="例：冷氣突然停止運轉且漏水" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                </div>
+
+                <!-- Description -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">詳細狀況說明</label>
+                    <textarea id="ticketDescription" rows="3" placeholder="請詳細描述設備狀況、異常現象或出現時間..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"></textarea>
+                </div>
+
+                <!-- Simulated Image Attachment -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">上傳照片預覽</label>
+                    <div class="border-2 border-dashed border-slate-200 rounded-xl p-3 text-center bg-slate-50 hover:bg-slate-100/50 transition cursor-pointer relative">
+                        <input type="file" id="ticketPhotoInput" accept="image/*" onchange="previewImage(event)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+                        <div id="uploadPlaceholder" class="space-y-1">
+                            <i class="fa-solid fa-cloud-arrow-up text-slate-400 text-xl"></i>
+                            <p class="text-xs text-slate-500">點擊上傳或拖曳照片至此</p>
+                        </div>
+                        <div id="imagePreviewContainer" class="hidden relative inline-block">
+                            <img id="imagePreview" src="" class="max-h-32 rounded-lg border border-slate-200 shadow-sm mx-auto">
+                            <button type="button" onclick="removeImagePreview(event)" class="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-md">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Footer Buttons -->
+                <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeNewTicketModal()" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                        取消
+                    </button>
+                    <button type="submit" class="px-5 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition">
+                        送出申請
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="detailTicketModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar fade-in">
+            <div id="detailContent">
+                <!-- Dynamically Populated -->
+            </div>
+        </div>
+    </div>
+
+    <div id="adminActionModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 fade-in">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                <h3 class="text-base font-bold text-slate-800"><i class="fa-solid fa-gear text-blue-600 mr-2"></i>維修進度與派單處置</h3>
+                <button onclick="closeAdminActionModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form onsubmit="handleSaveAdminAction(event)" class="space-y-4">
+                <input type="hidden" id="adminTicketId">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">處理狀態變更</label>
+                    <select id="adminStatusSelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                        <option value="PENDING">待處理 (Pending)</option>
+                        <option value="PROCESSING">維修處理中 (Processing)</option>
+                        <option value="COMPLETED">已完工結案 (Completed)</option>
+                        <option value="CANCELLED">撤銷報修 (Cancelled)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">指派維修技師/單位</label>
+                    <input type="text" id="adminTechnician" placeholder="例：陳師傅 (空調組) 或 外部原廠維修" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">維修處置紀錄 / 補充說明</label>
+                    <textarea id="adminNote" rows="3" placeholder="請填寫檢測結果、更換零件品名或處理進度..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"></textarea>
+                </div>
+                <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeAdminActionModal()" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">取消</button>
+                    <button type="submit" class="px-5 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition">儲存處置</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="officialFormModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 my-auto custom-scrollbar">
+            <!-- Action Toolbar (Hidden during print) -->
+            <div class="no-print flex flex-wrap justify-between items-center border-b border-slate-200 pb-4 mb-4 gap-2">
+                <div class="flex items-center space-x-2">
+                    <span class="bg-blue-100 text-blue-800 text-xs px-2.5 py-1 rounded-md font-bold border border-blue-300">
+                        <i class="fa-solid fa-file-contract mr-1"></i>坤侑貿易股份有限公司 1:1制式單
+                    </span>
+                    <span class="text-xs text-slate-500">單據預覽與列印</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="downloadOfficialExcel()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-xl shadow-sm transition flex items-center space-x-1">
+                        <i class="fa-solid fa-file-excel"></i>
+                        <span>匯出 Excel (.csv)</span>
+                    </button>
+                    <button onclick="window.print()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-xl shadow-sm transition flex items-center space-x-1">
+                        <i class="fa-solid fa-print"></i>
+                        <span>列印 / 存為 PDF</span>
+                    </button>
+                    <button onclick="closeOfficialFormModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Printable Form Body (Matches User Sample Image Exactly) -->
+            <div id="officialFormPrintArea" class="bg-white text-slate-900 p-4 text-xs font-sans border border-slate-200">
+                <!-- Header -->
+                <div class="text-center mb-3">
+                    <h2 class="text-2xl font-bold tracking-widest text-slate-900">坤侑貿易股份有限公司</h2>
+                    <h3 class="text-lg font-bold tracking-wider text-slate-800 mt-1">設 備 維 修 申 請 單</h3>
+                </div>
+
+                <!-- Header Info Bar -->
+                <div class="flex justify-between items-center text-xs font-bold mb-1.5 px-1">
+                    <div>單位：<span id="formDepartment" class="font-normal underline underline-offset-4 decoration-dotted"></span></div>
+                    <div>日期：<span id="formPrintDate" class="font-normal"></span></div>
+                </div>
+
+                <!-- Grid Table -->
+                <table class="w-full border-collapse border-2 border-slate-900 text-xs">
+                    <!-- Row 1: 設備類別 -->
+                    <tr>
+                        <td class="border border-slate-900 p-2 font-bold bg-slate-50 w-20 text-center">設備類別</td>
+                        <td colspan="3" class="border border-slate-900 p-2">
+                            <div class="grid grid-cols-3 gap-y-1.5 text-xs">
+                                <label class="flex items-center space-x-1.5"><input type="checkbox" id="catOffice" class="w-3.5 h-3.5"> <span>辦公設備</span></label>
+                                <label class="flex items-center space-x-1.5"><input type="checkbox" id="catPlumbing" class="w-3.5 h-3.5"> <span>水電</span></label>
+                                <label class="flex items-center space-x-1.5"><input type="checkbox" id="catOther" class="w-3.5 h-3.5"> <span>其他</span></label>
+                                <label class="flex items-center space-x-1.5"><input type="checkbox" id="catTelecom" class="w-3.5 h-3.5"> <span>電話通訊</span></label>
+                                <label class="flex items-center space-x-1.5"><input type="checkbox" id="catMachinery" class="w-3.5 h-3.5"> <span>機具設備</span></label>
+                                <label class="flex items-center space-x-1.5"><input type="checkbox" id="catExtra" class="w-3.5 h-3.5"> <span></span></label>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- Row 2: 設備名稱 & 廠牌型式 -->
+                    <tr>
+                        <td class="border border-slate-900 p-2 font-bold bg-slate-50 text-center">設備名稱</td>
+                        <td id="formTitle" class="border border-slate-900 p-2 w-5/12 font-medium"></td>
+                        <td class="border border-slate-900 p-2 font-bold bg-slate-50 w-24 text-center">廠牌型式</td>
+                        <td id="formBrandModel" class="border border-slate-900 p-2"></td>
+                    </tr>
+                    <!-- Row 3: 故障狀況 & 故障原因 -->
+                    <tr>
+                        <td class="border border-slate-900 p-2 font-bold bg-slate-50 text-center">故障狀況</td>
+                        <td id="formDescription" class="border border-slate-900 p-2"></td>
+                        <td class="border border-slate-900 p-2 font-bold bg-slate-50 text-center">故障原因</td>
+                        <td id="formCause" class="border border-slate-900 p-2"></td>
+                    </tr>
+                    <!-- Row 4: 故障日期 & 需要日期 -->
+                    <tr>
+                        <td class="border border-slate-900 p-2 font-bold bg-slate-50 text-center">故障日期</td>
+                        <td id="formCreatedAt" class="border border-slate-900 p-2"></td>
+                        <td class="border border-slate-900 p-2 font-bold bg-slate-50 text-center">需要日期</td>
+                        <td id="formRequiredDate" class="border border-slate-900 p-2"></td>
+                    </tr>
+                    <!-- Row 5: 修估金額 & 維修廠商 -->
+                    <tr>
+                        <td class="border border-slate-900 p-2 font-bold bg-slate-50 text-center">修估金額</td>
+                        <td id="formEstimatedCost" class="border border-slate-900 p-2"></td>
+                        <td class="border border-slate-900 p-2 font-bold bg-slate-50 text-center">維修廠商</td>
+                        <td id="formVendor" class="border border-slate-900 p-2"></td>
+                    </tr>
+                    <!-- Row 6: 實修金額 & 完工日期 -->
+                    <tr>
+                        <td class="border border-slate-900 p-2 font-bold bg-slate-50 text-center">實修金額</td>
+                        <td id="formActualCost" class="border border-slate-900 p-2"></td>
+                        <td class="border border-slate-900 p-2 font-bold bg-slate-50 text-center">完工日期</td>
+                        <td id="formCompletedDate" class="border border-slate-900 p-2"></td>
+                    </tr>
+                    <!-- Row 7: 預算科目 & 驗收簽名 -->
+                    <tr>
+                        <td class="border border-slate-900 p-2 font-bold bg-slate-50 text-center">預算科目</td>
+                        <td id="formBudgetItem" class="border border-slate-900 p-2"></td>
+                        <td class="border border-slate-900 p-2 font-bold bg-slate-50 text-center">驗收簽名</td>
+                        <td id="formAcceptanceSign" class="border border-slate-900 p-2 font-bold"></td>
+                    </tr>
+                </table>
+
+                <!-- Signature Matrix -->
+                <table class="w-full border-collapse border-x-2 border-b-2 border-slate-900 text-center text-xs">
+                    <!-- Level 1 Headers -->
+                    <tr class="bg-slate-100 font-bold border-b border-slate-900">
+                        <td colspan="2" class="border-r border-slate-900 p-1">裁決</td>
+                        <td colspan="2" class="border-r border-slate-900 p-1">主辦單位</td>
+                        <td colspan="3" class="p-1">申請單位</td>
+                    </tr>
+                    <!-- Level 2 Headers -->
+                    <tr class="bg-slate-50 font-bold border-b border-slate-900">
+                        <td class="border-r border-slate-900 p-1.5 w-[14%]">董事長</td>
+                        <td class="border-r border-slate-900 p-1.5 w-[14%]">總經理</td>
+                        <td class="border-r border-slate-900 p-1.5 w-[14%]">經理</td>
+                        <td class="border-r border-slate-900 p-1.5 w-[14%]">經辦</td>
+                        <td class="border-r border-slate-900 p-1.5 w-[14%]">經理</td>
+                        <td class="border-r border-slate-900 p-1.5 w-[15%]">主管</td>
+                        <td class="p-1.5 w-[15%]">申請人</td>
+                    </tr>
+                    <!-- Signature Cells (Blank box for physical signing or printed name) -->
+                    <tr class="h-16">
+                        <td class="border-r border-slate-900 p-1"></td>
+                        <td class="border-r border-slate-900 p-1"></td>
+                        <td class="border-r border-slate-900 p-1"></td>
+                        <td class="border-r border-slate-900 p-1"></td>
+                        <td class="border-r border-slate-900 p-1"></td>
+                        <td class="border-r border-slate-900 p-1"></td>
+                        <td class="p-1 font-semibold flex items-center justify-center h-16 text-slate-800" id="formReporterSign"></td>
+                    </tr>
+                </table>
+
+                <!-- Note / Photo Placement Area -->
+                <div class="border-x-2 border-b-2 border-slate-900 flex text-xs min-h-[260px]">
+                    <div class="w-10 bg-slate-50 font-bold border-r border-slate-900 flex items-center justify-center text-center p-2 tracking-widest text-slate-800">
+                        備<br>註
+                    </div>
+                    <div class="flex-1 p-3 flex flex-col justify-between">
+                        <div class="font-bold text-slate-900 mb-2 border-b border-slate-200 pb-1">
+                            放置設備或故障點照片
+                        </div>
+                        <div id="formPhotoArea" class="flex-1 min-h-[200px] border border-dashed border-slate-300 rounded-lg flex items-center justify-center p-2 bg-slate-50/50">
+                            <!-- Photo content injected dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Toast Notification Box -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-10 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center space-x-3 text-sm">
+            <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+            <span id="toastMessage">操作成功</span>
+        </div>
+    </div>
+
+    <script>
+        // --- Core Application State ---
+        let currentRole = 'user'; // 'user' or 'admin'
+        let currentViewMode = 'list'; // 'list' or 'kanban'
+        let uploadedImageBase64 = null;
+
+        // Default Initial Demo Data
+        const defaultTickets = [
+            {
+                id: 'FIX-20260901',
+                title: '辦公區主要冷氣出現異音且不停滴水',
+                category: '空調冷氣',
+                location: '4樓 B區 專案開發辦公室',
+                reporterName: '張美麗',
+                reporterPhone: '#4012',
+                urgency: 'HIGH',
+                status: 'PROCESSING',
+                description: '下午兩點開始空調出現很大的轉動雜音，並且下方開始滴水，嚴重影響同仁電腦設備安全。',
+                photo: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500&auto=format&fit=crop&q=60',
+                technician: '陳師傅 (空調組)',
+                createdAt: '2026-09-03 14:20',
+                rating: 0,
+                feedback: '',
+                timeline: [
+                    { time: '2026-09-03 14:20', text: '申請人張美麗提交報修工單。' },
+                    { time: '2026-09-03 14:45', text: '管理員接收工單，指派給「陳師傅 (空調組)」。狀態變更為【維修中】。' }
+                ]
+            },
+            {
+                id: 'FIX-20260902',
+                title: '網路牆面插座鬆脫無訊號',
+                category: '網路資訊',
+                location: '2樓 會議室 201',
+                reporterName: '李小華',
+                reporterPhone: '0912-345-678',
+                urgency: 'MEDIUM',
+                status: 'PENDING',
+                description: '簡報用的網路孔插頭插上去沒有任何反應，燈號沒亮，似乎內部接線斷裂。',
+                photo: null,
+                technician: '未指派',
+                createdAt: '2026-09-04 08:30',
+                rating: 0,
+                feedback: '',
+                timeline: [
+                    { time: '2026-09-04 08:30', text: '申請人李小華提交報修工單。' }
+                ]
+            },
+            {
+                id: 'FIX-20260828',
+                title: '茶水間感應式水龍頭無法出水',
+                category: '水電設備',
+                location: '3樓 員工茶水間',
+                reporterName: '林大衛',
+                reporterPhone: '#3005',
+                urgency: 'LOW',
+                status: 'COMPLETED',
+                description: '水龍頭感應器燈不亮，懷疑是電池耗盡需要更換電池。',
+                photo: null,
+                technician: '王大同 (總務課)',
+                createdAt: '2026-08-28 10:15',
+                rating: 5,
+                feedback: '處理非常迅速，換完電池順便清理了濾網，太感謝了！',
+                timeline: [
+                    { time: '2026-08-28 10:15', text: '申請人林大衛提交報修工單。' },
+                    { time: '2026-08-28 11:00', text: '派單給王大同維修。' },
+                    { time: '2026-08-28 11:30', text: '更換電池完成測試正常，狀態變更為【已完成】。' },
+                    { time: '2026-08-28 12:00', text: '報修人完成 5 星滿意度評分。' }
+                ]
+            }
+        ];
+
+        function getTickets() {
+            const data = localStorage.getItem('easyfix_tickets');
+            if (!data) {
+                localStorage.setItem('easyfix_tickets', JSON.stringify(defaultTickets));
+                return defaultTickets;
+            }
+            return JSON.parse(data);
+        }
+
+        function saveTickets(tickets) {
+            localStorage.setItem('easyfix_tickets', JSON.stringify(tickets));
+            renderDashboard();
+        }
+
+        // Initialize App on DOM Load
+        window.onload = function() {
+            renderDashboard();
+        };
+
+        function switchRole(role) {
+            currentRole = role;
+            const userBtn = document.getElementById('roleUserBtn');
+            const adminBtn = document.getElementById('roleAdminBtn');
+
+            if (role === 'user') {
+                userBtn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 bg-white text-blue-600 shadow-sm";
+                adminBtn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-900";
+                showToast("切換至：報修申請者模式", "fa-user text-blue-400");
+            } else {
+                adminBtn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 bg-white text-blue-600 shadow-sm";
+                userBtn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-900";
+                showToast("切換至：維修管理者模式", "fa-user-gear text-indigo-400");
+            }
+
+            renderDashboard();
+        }
+
+        function toggleViewMode(mode) {
+            currentViewMode = mode;
+            const listBtn = document.getElementById('viewListBtn');
+            const kanbanBtn = document.getElementById('viewKanbanBtn');
+
+            if (mode === 'list') {
+                listBtn.className = "p-1.5 text-xs rounded-lg transition text-blue-600 bg-white shadow-sm";
+                kanbanBtn.className = "p-1.5 text-xs rounded-lg transition text-slate-500 hover:text-slate-800";
+            } else {
+                kanbanBtn.className = "p-1.5 text-xs rounded-lg transition text-blue-600 bg-white shadow-sm";
+                listBtn.className = "p-1.5 text-xs rounded-lg transition text-slate-500 hover:text-slate-800";
+            }
+
+            renderDashboard();
+        }
+
+        function getFilteredTickets() {
+            const tickets = getTickets();
+            const search = document.getElementById('searchInput').value.trim().toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const categoryFilter = document.getElementById('categoryFilter').value;
+            const urgencyFilter = document.getElementById('urgencyFilter').value;
+
+            return tickets.filter(t => {
+                const matchSearch = !search || 
+                    t.id.toLowerCase().includes(search) ||
+                    t.title.toLowerCase().includes(search) ||
+                    t.location.toLowerCase().includes(search) ||
+                    t.reporterName.toLowerCase().includes(search);
+
+                const matchStatus = statusFilter === 'ALL' || t.status === statusFilter;
+                const matchCategory = categoryFilter === 'ALL' || t.category === categoryFilter;
+                const matchUrgency = urgencyFilter === 'ALL' || t.urgency === urgencyFilter;
+
+                return matchSearch && matchStatus && matchCategory && matchUrgency;
+            });
+        }
+
+        function handleSearchFilter() {
+            renderDashboard();
+        }
+
+        function updateStats(tickets) {
+            const allTickets = getTickets();
+            document.getElementById('statTotal').innerText = allTickets.length;
+            document.getElementById('statPending').innerText = allTickets.filter(t => t.status === 'PENDING').length;
+            document.getElementById('statProcessing').innerText = allTickets.filter(t => t.status === 'PROCESSING').length;
+            document.getElementById('statCompleted').innerText = allTickets.filter(t => t.status === 'COMPLETED').length;
+        }
+
+        function renderDashboard() {
+            const tickets = getFilteredTickets();
+            updateStats(tickets);
+
+            const container = document.getElementById('contentContainer');
+
+            if (tickets.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
+                        <i class="fa-solid fa-folder-open text-4xl mb-3 text-slate-300"></i>
+                        <p class="text-sm font-medium">沒有符合條件的報修紀錄</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (currentViewMode === 'list') {
+                renderListView(container, tickets);
+            } else {
+                renderKanbanView(container, tickets);
+            }
+        }
+
+        function getUrgencyBadge(urgency) {
+            switch(urgency) {
+                case 'HIGH':
+                    return `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-red-100 text-red-700 border border-red-200"><i class="fa-solid fa-triangle-exclamation mr-1"></i>緊急</span>`;
+                case 'MEDIUM':
+                    return `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">中等</span>`;
+                default:
+                    return `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">一般</span>`;
+            }
+        }
+
+        function getStatusBadge(status) {
+            switch(status) {
+                case 'PENDING':
+                    return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200"><i class="fa-solid fa-spinner fa-spin mr-1.5"></i>待處理</span>`;
+                case 'PROCESSING':
+                    return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-600 border border-blue-200"><i class="fa-solid fa-screwdriver-wrench mr-1.5"></i>維修中</span>`;
+                case 'COMPLETED':
+                    return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200"><i class="fa-solid fa-check mr-1.5"></i>已完成</span>`;
+                case 'CANCELLED':
+                    return `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">已撤銷</span>`;
+            }
+        }
+
+        function renderListView(container, tickets) {
+            let html = `
+                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50/80 text-slate-500 text-xs font-semibold border-b border-slate-200/80">
+                                    <th class="py-3 px-4">單號 / 項目</th>
+                                    <th class="py-3 px-4">地點</th>
+                                    <th class="py-3 px-4">類別與急迫度</th>
+                                    <th class="py-3 px-4">申請人 / 時間</th>
+                                    <th class="py-3 px-4">負責技師</th>
+                                    <th class="py-3 px-4">狀態</th>
+                                    <th class="py-3 px-4 text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-sm">
+            `;
+
+            tickets.forEach(t => {
+                html += `
+                    <tr class="hover:bg-slate-50/60 transition group">
+                        <td class="py-3.5 px-4">
+                            <div class="font-bold text-slate-800">${escapeHtml(t.title)}</div>
+                            <div class="text-xs text-slate-400 font-mono mt-0.5">${t.id}</div>
+                        </td>
+                        <td class="py-3.5 px-4 text-slate-600">
+                            <i class="fa-solid fa-location-dot text-slate-400 text-xs mr-1"></i>${escapeHtml(t.location)}
+                        </td>
+                        <td class="py-3.5 px-4 space-x-1">
+                            <span class="inline-block bg-slate-100 text-slate-700 text-xs px-2 py-0.5 rounded-md font-medium">${escapeHtml(t.category)}</span>
+                            ${getUrgencyBadge(t.urgency)}
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <div class="text-slate-800 font-medium">${escapeHtml(t.reporterName)}</div>
+                            <div class="text-xs text-slate-400">${t.createdAt}</div>
+                        </td>
+                        <td class="py-3.5 px-4 text-slate-600">
+                            ${t.technician !== '未指派' ? `<span class="text-blue-700 font-medium"><i class="fa-solid fa-user-check text-xs mr-1"></i>${escapeHtml(t.technician)}</span>` : `<span class="text-slate-400 text-xs">未派單</span>`}
+                        </td>
+                        <td class="py-3.5 px-4">
+                            ${getStatusBadge(t.status)}
+                        </td>
+                        <td class="py-3.5 px-4 text-right space-x-1">
+                            <button onclick="viewTicketDetails('${t.id}')" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition" title="檢視詳情">
+                                <i class="fa-solid fa-eye mr-1"></i>詳情
+                            </button>
+                            <button onclick="openOfficialFormModal('${t.id}')" class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-medium rounded-lg transition" title="坤侑1141021版制式維修單">
+                                <i class="fa-solid fa-file-contract mr-1"></i>制式單
+                            </button>
+                            ${currentRole === 'admin' ? `
+                                <button onclick="openAdminActionModal('${t.id}')" class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-lg transition">
+                                    <i class="fa-solid fa-gear mr-1"></i>管理
+                                </button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        function renderKanbanView(container, tickets) {
+            const columns = [
+                { title: '待處理 (Pending)', status: 'PENDING', bg: 'bg-amber-500/10', text: 'text-amber-800' },
+                { title: '維修中 (Processing)', status: 'PROCESSING', bg: 'bg-blue-500/10', text: 'text-blue-800' },
+                { title: '已完成 (Completed)', status: 'COMPLETED', bg: 'bg-emerald-500/10', text: 'text-emerald-800' }
+            ];
+
+            let html = `<div class="grid grid-cols-1 md:grid-cols-3 gap-6">`;
+
+            columns.forEach(col => {
+                const colTickets = tickets.filter(t => t.status === col.status);
+
+                html += `
+                    <div class="bg-slate-100/70 p-4 rounded-2xl border border-slate-200/80 flex flex-col min-h-[400px]">
+                        <div class="flex items-center justify-between mb-3 px-1">
+                            <span class="font-bold text-sm ${col.text}">${col.title}</span>
+                            <span class="bg-white px-2 py-0.5 rounded-full text-xs font-bold shadow-sm text-slate-600">${colTickets.length}</span>
+                        </div>
+                        <div class="space-y-3 flex-1 overflow-y-auto custom-scrollbar">
+                `;
+
+                if (colTickets.length === 0) {
+                    html += `<div class="p-4 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">無案件</div>`;
+                } else {
+                    colTickets.forEach(t => {
+                        html += `
+                            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition space-y-2.5">
+                                <div class="flex justify-between items-start">
+                                    <span class="text-xs font-mono text-slate-400">${t.id}</span>
+                                    ${getUrgencyBadge(t.urgency)}
+                                </div>
+                                <h4 class="font-bold text-slate-800 text-sm leading-snug">${escapeHtml(t.title)}</h4>
+                                <div class="text-xs text-slate-500 space-y-1">
+                                    <div><i class="fa-solid fa-location-dot text-slate-400 mr-1.5"></i>${escapeHtml(t.location)}</div>
+                                    <div><i class="fa-solid fa-user text-slate-400 mr-1.5"></i>${escapeHtml(t.reporterName)} (${escapeHtml(t.category)})</div>
+                                </div>
+                                <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+                                    <span class="text-xs text-slate-400">${t.createdAt.split(' ')[0]}</span>
+                                    <div class="space-x-1">
+                                        <button onclick="viewTicketDetails('${t.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-xs font-medium rounded-lg text-slate-700">詳情</button>
+                                        <button onclick="openOfficialFormModal('${t.id}')" class="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-xs font-medium rounded-lg text-emerald-700" title="坤侑1141021版制式單"><i class="fa-solid fa-file-contract"></i></button>
+                                        ${currentRole === 'admin' ? `<button onclick="openAdminActionModal('${t.id}')" class="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-xs font-medium rounded-lg text-blue-700">管理</button>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        let activeExportTicket = null;
+
+        function openOfficialFormModal(id) {
+            const tickets = getTickets();
+            const t = tickets.find(item => item.id === id);
+            if (!t) return;
+
+            activeExportTicket = t;
+
+            // Fill Department and Header Info
+            document.getElementById('formDepartment').innerText = `${t.location.split(' ')[0] || '總務/維修部'} (${t.reporterName})`;
+            document.getElementById('formPrintDate').innerText = new Date().toLocaleDateString('zh-TW');
+
+            // Equipment Checkboxes
+            document.getElementById('catOffice').checked = (t.category === '傢俱裝潢' || t.category === '辦公設備');
+            document.getElementById('catPlumbing').checked = (t.category === '水電設備' || t.category === '空調冷氣');
+            document.getElementById('catOther').checked = (t.category === '其他項目');
+            document.getElementById('catTelecom').checked = (t.category === '網路資訊');
+            document.getElementById('catMachinery').checked = (t.category === '環境安全');
+            document.getElementById('catExtra').checked = false;
+
+            // Form Fields
+            document.getElementById('formTitle').innerText = t.title;
+            document.getElementById('formBrandModel').innerText = t.brandModel || '一般規格設備';
+            document.getElementById('formDescription').innerText = t.description || '無特殊故障狀況說明';
+            document.getElementById('formCause').innerText = t.technician && t.technician !== '未指派' ? `由 ${t.technician} 檢測中` : '待技術人員現場排查';
+
+            document.getElementById('formCreatedAt').innerText = t.createdAt.split(' ')[0];
+            document.getElementById('formRequiredDate').innerText = t.urgency === 'HIGH' ? '即刻/本日' : (t.urgency === 'MEDIUM' ? '24小時內' : '3日內');
+
+            document.getElementById('formEstimatedCost').innerText = t.estimatedCost ? `$${t.estimatedCost}` : '待估價';
+            document.getElementById('formVendor').innerText = t.technician || '未指派';
+
+            document.getElementById('formActualCost').innerText = t.actualCost ? `$${t.actualCost}` : (t.status === 'COMPLETED' ? '已核銷' : '-');
+            const lastTimeline = t.timeline && t.timeline.length > 0 ? t.timeline[t.timeline.length - 1] : null;
+            document.getElementById('formCompletedDate').innerText = t.status === 'COMPLETED' ? (lastTimeline ? lastTimeline.time.split(' ')[0] : t.createdAt.split(' ')[0]) : '未完工';
+
+            document.getElementById('formBudgetItem').innerText = '修繕維護費';
+            document.getElementById('formAcceptanceSign').innerText = t.status === 'COMPLETED' ? t.reporterName : '';
+            document.getElementById('formReporterSign').innerText = t.reporterName;
+
+            // Populate Photo Box
+            const photoContainer = document.getElementById('formPhotoArea');
+            if (t.photo) {
+                photoContainer.innerHTML = `
+                    <div class="text-center space-y-2">
+                        <img src="${t.photo}" class="max-h-52 max-w-full rounded border border-slate-300 shadow-sm mx-auto object-contain">
+                        <p class="text-[10px] text-slate-500">報修現場附圖 (單號: ${t.id})</p>
+                    </div>
+                `;
+            } else {
+                photoContainer.innerHTML = `
+                    <div class="text-center text-slate-400 py-6">
+                        <i class="fa-regular fa-image text-3xl mb-1 text-slate-300"></i>
+                        <p class="text-xs">【放置設備或故障點照片處】</p>
+                        <p class="text-[10px] text-slate-400 mt-1">（可於列印後貼附或補印照片）</p>
+                    </div>
+                `;
+            }
+
+            document.getElementById('officialFormModal').classList.remove('hidden');
+        }
+
+        function closeOfficialFormModal() {
+            document.getElementById('officialFormModal').classList.add('hidden');
+        }
+
+        // Single Ticket CSV Export for 坤侑貿易股份有限公司
+        function downloadOfficialExcel(id) {
+            const t = id ? getTickets().find(x => x.id === id) : activeExportTicket;
+            if (!t) return;
+
+            let csvContent = "\uFEFF"; // UTF-8 BOM
+            csvContent += "坤侑貿易股份有限公司 - 設備維修申請單\n";
+            csvContent += `單號,${t.id},日期,${new Date().toLocaleDateString('zh-TW')}\n\n`;
+
+            csvContent += "設備類別,設備名稱,廠牌型式,故障狀況,故障原因,故障日期,需要日期\n";
+            csvContent += `"${t.category}","${t.title.replace(/"/g, '""')}","一般規格","${t.description.replace(/"/g, '""')}","待檢測","${t.createdAt}","${t.urgency}"\n\n`;
+
+            csvContent += "修估金額,維修廠商,實修金額,完工日期,預算科目,驗收簽名\n";
+            csvContent += `"待估","${t.technician}","-","${t.status === 'COMPLETED' ? '已完工' : '未完工'}","修繕費","${t.status === 'COMPLETED' ? t.reporterName : ''}"\n\n`;
+
+            csvContent += "簽核欄：\n";
+            csvContent += "裁決 (董事長/總經理), 主辦單位 (經理/經辦), 申請單位 (經理/主管/申請人)\n";
+            csvContent += `[ ], [ ], [ ${t.reporterName} ]\n`;
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `設備維修申請單_${t.id}_坤侑貿易.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast("已成功下載 坤侑貿易 設備維修申請單", "fa-file-excel text-emerald-400");
+        }
+
+        // Batch Export All Filtered Tickets to CSV
+        function downloadBatchExcel() {
+            const tickets = getFilteredTickets();
+            if (tickets.length === 0) {
+                showToast("無可匯出的資料", "fa-triangle-exclamation text-amber-400");
+                return;
+            }
+
+            let csvContent = "\uFEFF"; // UTF-8 BOM
+            csvContent += "坤侑貿易股份有限公司 - 設備維修總彙整清冊\n";
+            csvContent += "單號,報修日期,申請人,聯絡電話,類別,故障地點,急迫度,狀態,負責技師,主題說明,滿意度\n";
+
+            tickets.forEach(t => {
+                csvContent += `"${t.id}","${t.createdAt}","${t.reporterName}","${t.reporterPhone}","${t.category}","${t.location}","${t.urgency}","${t.status}","${t.technician}","${t.title.replace(/"/g, '""')}","${t.rating}星"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `坤侑設備維修總清冊_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast(`已成功匯出 ${tickets.length} 筆維修紀錄`, "fa-file-excel text-emerald-400");
+        }
+
+        function previewImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImageBase64 = e.target.result;
+                    document.getElementById('imagePreview').src = uploadedImageBase64;
+                    document.getElementById('uploadPlaceholder').classList.add('hidden');
+                    document.getElementById('imagePreviewContainer').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removeImagePreview(e) {
+            e.stopPropagation();
+            uploadedImageBase64 = null;
+            document.getElementById('ticketPhotoInput').value = '';
+            document.getElementById('imagePreview').src = '';
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
+            document.getElementById('uploadPlaceholder').classList.remove('hidden');
+        }
+
+        function openNewTicketModal() {
+            document.getElementById('newTicketForm').reset();
+            removeImagePreview({ stopPropagation: () => {} });
+            document.getElementById('newTicketModal').classList.remove('hidden');
+        }
+
+        function closeNewTicketModal() {
+            document.getElementById('newTicketModal').classList.add('hidden');
+        }
+
+        function handleCreateTicket(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('reporterName').value.trim();
+            const phone = document.getElementById('reporterPhone').value.trim();
+            const category = document.getElementById('ticketCategory').value;
+            const location = document.getElementById('ticketLocation').value.trim();
+            const urgency = document.querySelector('input[name="urgency"]:checked').value;
+            const title = document.getElementById('ticketTitle').value.trim();
+            const description = document.getElementById('ticketDescription').value.trim();
+
+            const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+            const randomNum = Math.floor(100 + Math.random() * 900);
+            const newId = `FIX-${dateStr}-${randomNum}`;
+            const nowTime = new Date().toLocaleString('zh-TW', { hour12: false }).slice(0, 16).replace(/\//g, '-');
+
+            const newTicket = {
+                id: newId,
+                title: title,
+                category: category,
+                location: location,
+                reporterName: name,
+                reporterPhone: phone,
+                urgency: urgency,
+                status: 'PENDING',
+                description: description || '無特別補充說明。',
+                photo: uploadedImageBase64,
+                technician: '未指派',
+                createdAt: nowTime,
+                rating: 0,
+                feedback: '',
+                timeline: [
+                    { time: nowTime, text: `申請人 ${name} 提交報修工單。` }
+                ]
+            };
+
+            const tickets = getTickets();
+            tickets.unshift(newTicket);
+            saveTickets(tickets);
+
+            closeNewTicketModal();
+            showToast("報修申請已順利送出！", "fa-circle-check text-emerald-400");
+        }
+
+        function viewTicketDetails(id) {
+            const tickets = getTickets();
+            const t = tickets.find(item => item.id === id);
+            if (!t) return;
+
+            const modal = document.getElementById('detailTicketModal');
+            const content = document.getElementById('detailContent');
+
+            let timelineHtml = t.timeline.map(item => `
+                <div class="relative pl-6 pb-4 last:pb-0 border-l-2 border-slate-200">
+                    <div class="absolute -left-[7px] top-0 w-3 h-3 rounded-full bg-blue-600 border-2 border-white"></div>
+                    <div class="text-xs text-slate-400 font-mono">${item.time}</div>
+                    <div class="text-xs text-slate-700 mt-0.5">${escapeHtml(item.text)}</div>
+                </div>
+            `).join('');
+
+            content.innerHTML = `
+                <div class="flex justify-between items-start border-b border-slate-100 pb-4 mb-4">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded">${t.id}</span>
+                            ${getStatusBadge(t.status)}
+                            ${getUrgencyBadge(t.urgency)}
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-900 mt-2">${escapeHtml(t.title)}</h3>
+                    </div>
+                    <button onclick="closeDetailTicketModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-600 mb-4 bg-slate-50 p-3.5 rounded-xl border border-slate-200/60">
+                    <div><span class="text-slate-400">報修地點：</span><strong class="text-slate-800">${escapeHtml(t.location)}</strong></div>
+                    <div><span class="text-slate-400">報修類別：</span><strong class="text-slate-800">${escapeHtml(t.category)}</strong></div>
+                    <div><span class="text-slate-400">申請人員：</span><strong class="text-slate-800">${escapeHtml(t.reporterName)} (${escapeHtml(t.reporterPhone)})</strong></div>
+                    <div><span class="text-slate-400">負責技師：</span><strong class="text-blue-700">${escapeHtml(t.technician)}</strong></div>
+                    <div><span class="text-slate-400">建立時間：</span><strong>${t.createdAt}</strong></div>
+                </div>
+
+                <div class="space-y-3 mb-6">
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-700 mb-1">詳細說明</h4>
+                        <p class="text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-200 leading-relaxed">${escapeHtml(t.description)}</p>
+                    </div>
+
+                    ${t.photo ? `
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-700 mb-1">現場照片</h4>
+                            <img src="${t.photo}" class="max-h-56 rounded-xl border border-slate-200 object-cover shadow-sm">
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- Timeline History -->
+                <div class="border-t border-slate-100 pt-4 mb-4">
+                    <h4 class="text-xs font-bold text-slate-700 mb-3"><i class="fa-solid fa-clock-rotate-left mr-1"></i>處理進度歷程</h4>
+                    <div class="ml-2 space-y-1">
+                        ${timelineHtml}
+                    </div>
+                </div>
+
+                <!-- Rating Section if completed -->
+                ${t.status === 'COMPLETED' ? `
+                    <div class="border-t border-slate-100 pt-4 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+                        <h4 class="text-xs font-bold text-emerald-800 mb-2"><i class="fa-solid fa-star text-amber-400 mr-1"></i>服務滿意度評分</h4>
+                        ${t.rating > 0 ? `
+                            <div class="flex items-center space-x-1 text-amber-400 text-sm mb-1">
+                                ${Array.from({length: 5}, (_, i) => `<i class="fa-${i < t.rating ? 'solid' : 'regular'} fa-star"></i>`).join('')}
+                                <span class="text-xs text-slate-600 ml-2">(${t.rating} 分)</span>
+                            </div>
+                            <p class="text-xs text-slate-600 italic">"${escapeHtml(t.feedback || '無填寫文字意見')}"</p>
+                        ` : `
+                            <p class="text-xs text-slate-500 mb-2">請針對本次維修品質給予評分：</p>
+                            <div class="flex items-center space-x-2">
+                                <div id="starContainer" class="flex text-amber-400 text-lg cursor-pointer">
+                                    ${[1, 2, 3, 4, 5].map(star => `<i class="fa-regular fa-star hover:text-amber-500" onclick="rateTicket('${t.id}', ${star})"></i>`).join('')}
+                                </div>
+                            </div>
+                        `}
+                    </div>
+                ` : ''}
+
+                <div class="flex justify-between items-center border-t border-slate-100 pt-4 mt-4">
+                    <div class="flex items-center space-x-2">
+                        <button onclick="openOfficialFormModal('${t.id}')" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-medium rounded-xl transition">
+                            <i class="fa-solid fa-file-contract mr-1"></i>坤侑制式單(1141021版)
+                        </button>
+                        ${currentRole === 'user' && t.status === 'PENDING' ? `
+                            <button onclick="cancelTicketByApplicant('${t.id}')" class="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-lg transition">
+                                <i class="fa-solid fa-ban mr-1"></i>撤銷報修
+                            </button>
+                        ` : ''}
+                    </div>
+                    <button onclick="closeDetailTicketModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl">
+                        關閉
+                    </button>
+                </div>
+            `;
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeDetailTicketModal() {
+            document.getElementById('detailTicketModal').classList.add('hidden');
+        }
+
+        function rateTicket(id, score) {
+            const feedback = prompt("請輸入您的寶貴建議或意見 (可留空)：") || "";
+            const tickets = getTickets();
+            const t = tickets.find(item => item.id === id);
+            if (t) {
+                t.rating = score;
+                t.feedback = feedback;
+                const nowTime = new Date().toLocaleString('zh-TW', { hour12: false }).slice(0, 16).replace(/\//g, '-');
+                t.timeline.push({ time: nowTime, text: `報修人完成 ${score} 星滿意度評分。` });
+                saveTickets(tickets);
+                viewTicketDetails(id);
+                showToast("感謝您的滿意度評分！", "fa-star text-amber-400");
+            }
+        }
+
+        function cancelTicketByApplicant(id) {
+            if (!confirm("確定要撤銷此報修工單嗎？")) return;
+            const tickets = getTickets();
+            const t = tickets.find(item => item.id === id);
+            if (t) {
+                t.status = 'CANCELLED';
+                const nowTime = new Date().toLocaleString('zh-TW', { hour12: false }).slice(0, 16).replace(/\//g, '-');
+                t.timeline.push({ time: nowTime, text: `申請人自行撤銷報修。` });
+                saveTickets(tickets);
+                closeDetailTicketModal();
+                showToast("已撤銷報修工單", "fa-info-circle text-slate-400");
+            }
+        }
+
+        function openAdminActionModal(id) {
+            const tickets = getTickets();
+            const t = tickets.find(item => item.id === id);
+            if (!t) return;
+
+            document.getElementById('adminTicketId').value = t.id;
+            document.getElementById('adminStatusSelect').value = t.status;
+            document.getElementById('adminTechnician').value = t.technician === '未指派' ? '' : t.technician;
+            document.getElementById('adminNote').value = '';
+
+            document.getElementById('adminActionModal').classList.remove('hidden');
+        }
+
+        function closeAdminActionModal() {
+            document.getElementById('adminActionModal').classList.add('hidden');
+        }
+
+        function handleSaveAdminAction(e) {
+            e.preventDefault();
+            const id = document.getElementById('adminTicketId').value;
+            const status = document.getElementById('adminStatusSelect').value;
+            const technician = document.getElementById('adminTechnician').value.trim() || '未指派';
+            const note = document.getElementById('adminNote').value.trim();
+
+            const tickets = getTickets();
+            const t = tickets.find(item => item.id === id);
+
+            if (t) {
+                const nowTime = new Date().toLocaleString('zh-TW', { hour12: false }).slice(0, 16).replace(/\//g, '-');
+                t.status = status;
+                t.technician = technician;
+
+                let statusName = status;
+                if (status === 'PENDING') statusName = '待處理';
+                if (status === 'PROCESSING') statusName = '維修中';
+                if (status === 'COMPLETED') statusName = '完成結案';
+                if (status === 'CANCELLED') statusName = '撤銷';
+
+                let logMsg = `管理者處置：狀態更新為【${statusName}】，指派人員：${technician}。`;
+                if (note) logMsg += ` 備註：${note}`;
+
+                t.timeline.push({ time: nowTime, text: logMsg });
+
+                saveTickets(tickets);
+                closeAdminActionModal();
+                showToast("工單資訊已成功更新", "fa-check-double text-blue-400");
+            }
+        }
+
+        function showToast(msg, iconClass = "fa-circle-check text-emerald-400") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = msg;
+            toastIcon.className = `fa-solid ${iconClass} text-lg`;
+
+            toast.classList.remove('translate-y-10', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-10', 'opacity-0');
+            }, 3000);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
