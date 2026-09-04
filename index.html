@@ -317,14 +317,14 @@
                     <textarea id="ticketDescription" rows="3" placeholder="請詳細描述設備狀況、異常現象或出現時間..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"></textarea>
                 </div>
 
-                <!-- Simulated Image Attachment -->
+                <!-- Mobile Photo Upload with Canvas Auto Compression -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">上傳照片預覽</label>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">上傳照片預覽 (手機拍照自動壓縮輕量化)</label>
                     <div class="border-2 border-dashed border-slate-200 rounded-xl p-3 text-center bg-slate-50 hover:bg-slate-100/50 transition cursor-pointer relative">
                         <input type="file" id="ticketPhotoInput" accept="image/*" onchange="previewImage(event)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
                         <div id="uploadPlaceholder" class="space-y-1">
                             <i class="fa-solid fa-cloud-arrow-up text-slate-400 text-xl"></i>
-                            <p class="text-xs text-slate-500">點擊上傳或拖曳照片至此</p>
+                            <p class="text-xs text-slate-500">點擊選擇照片或直接拍攝照片</p>
                         </div>
                         <div id="imagePreviewContainer" class="hidden relative inline-block">
                             <img id="imagePreview" src="" class="max-h-32 rounded-lg border border-slate-200 shadow-sm mx-auto">
@@ -340,7 +340,7 @@
                     <button type="button" onclick="closeNewTicketModal()" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
                         取消
                     </button>
-                    <button type="submit" class="px-5 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition">
+                    <button type="submit" class="px-5 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition active:scale-95">
                         送出申請
                     </button>
                 </div>
@@ -416,7 +416,7 @@
                 </div>
             </div>
 
-            <!-- Printable Form Body (Matches User Sample Image Exactly) -->
+            <!-- Printable Form Body -->
             <div id="officialFormPrintArea" class="bg-white text-slate-900 p-4 text-xs font-sans border border-slate-200">
                 <!-- Header -->
                 <div class="text-center mb-3">
@@ -492,13 +492,11 @@
 
                 <!-- Signature Matrix -->
                 <table class="w-full border-collapse border-x-2 border-b-2 border-slate-900 text-center text-xs">
-                    <!-- Level 1 Headers -->
                     <tr class="bg-slate-100 font-bold border-b border-slate-900">
                         <td colspan="2" class="border-r border-slate-900 p-1">裁決</td>
                         <td colspan="2" class="border-r border-slate-900 p-1">主辦單位</td>
                         <td colspan="3" class="p-1">申請單位</td>
                     </tr>
-                    <!-- Level 2 Headers -->
                     <tr class="bg-slate-50 font-bold border-b border-slate-900">
                         <td class="border-r border-slate-900 p-1.5 w-[14%]">董事長</td>
                         <td class="border-r border-slate-900 p-1.5 w-[14%]">總經理</td>
@@ -508,7 +506,6 @@
                         <td class="border-r border-slate-900 p-1.5 w-[15%]">主管</td>
                         <td class="p-1.5 w-[15%]">申請人</td>
                     </tr>
-                    <!-- Signature Cells (Blank box for physical signing or printed name) -->
                     <tr class="h-16">
                         <td class="border-r border-slate-900 p-1"></td>
                         <td class="border-r border-slate-900 p-1"></td>
@@ -618,17 +615,29 @@
         ];
 
         function getTickets() {
-            const data = localStorage.getItem('easyfix_tickets');
-            if (!data) {
-                localStorage.setItem('easyfix_tickets', JSON.stringify(defaultTickets));
+            try {
+                const data = localStorage.getItem('easyfix_tickets');
+                if (!data) {
+                    localStorage.setItem('easyfix_tickets', JSON.stringify(defaultTickets));
+                    return defaultTickets;
+                }
+                return JSON.parse(data);
+            } catch(err) {
+                console.error("Local storage access failed", err);
                 return defaultTickets;
             }
-            return JSON.parse(data);
         }
 
         function saveTickets(tickets) {
-            localStorage.setItem('easyfix_tickets', JSON.stringify(tickets));
-            renderDashboard();
+            try {
+                localStorage.setItem('easyfix_tickets', JSON.stringify(tickets));
+                renderDashboard();
+                return true;
+            } catch (err) {
+                console.error("Storage Error:", err);
+                alert("⚠️ 儲存空間已滿！照片檔案可能過大，請清理舊紀錄或重新選取較小相片後再試一次。");
+                return false;
+            }
         }
 
         // Initialize App on DOM Load
@@ -1003,22 +1012,52 @@
             showToast(`已成功匯出 ${tickets.length} 筆維修紀錄`, "fa-file-excel text-emerald-400");
         }
 
+        // Smart Mobile Image Preview with Automatic Compression
         function previewImage(event) {
             const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    uploadedImageBase64 = e.target.result;
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // Compress image using HTML5 Canvas to prevent LocalStorage Quota Exceeded error on mobile
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDim = 800; // max width or height for mobile photo
+
+                    if (width > height) {
+                        if (width > maxDim) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        }
+                    } else {
+                        if (height > maxDim) {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Compress to JPEG with 0.7 quality (~80KB)
+                    uploadedImageBase64 = canvas.toDataURL('image/jpeg', 0.7);
+
                     document.getElementById('imagePreview').src = uploadedImageBase64;
                     document.getElementById('uploadPlaceholder').classList.add('hidden');
                     document.getElementById('imagePreviewContainer').classList.remove('hidden');
                 };
-                reader.readAsDataURL(file);
-            }
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
         }
 
         function removeImagePreview(e) {
-            e.stopPropagation();
+            if (e && e.stopPropagation) e.stopPropagation();
             uploadedImageBase64 = null;
             document.getElementById('ticketPhotoInput').value = '';
             document.getElementById('imagePreview').src = '';
@@ -1028,7 +1067,7 @@
 
         function openNewTicketModal() {
             document.getElementById('newTicketForm').reset();
-            removeImagePreview({ stopPropagation: () => {} });
+            removeImagePreview(null);
             document.getElementById('newTicketModal').classList.remove('hidden');
         }
 
@@ -1039,45 +1078,63 @@
         function handleCreateTicket(e) {
             e.preventDefault();
 
-            const name = document.getElementById('reporterName').value.trim();
-            const phone = document.getElementById('reporterPhone').value.trim();
-            const category = document.getElementById('ticketCategory').value;
-            const location = document.getElementById('ticketLocation').value.trim();
-            const urgency = document.querySelector('input[name="urgency"]:checked').value;
-            const title = document.getElementById('ticketTitle').value.trim();
-            const description = document.getElementById('ticketDescription').value.trim();
+            try {
+                const name = document.getElementById('reporterName').value.trim();
+                const phone = document.getElementById('reporterPhone').value.trim();
+                const category = document.getElementById('ticketCategory').value;
+                const location = document.getElementById('ticketLocation').value.trim();
+                
+                const urgencyRadio = document.querySelector('input[name="urgency"]:checked');
+                const urgency = urgencyRadio ? urgencyRadio.value : 'LOW';
 
-            const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
-            const randomNum = Math.floor(100 + Math.random() * 900);
-            const newId = `FIX-${dateStr}-${randomNum}`;
-            const nowTime = new Date().toLocaleString('zh-TW', { hour12: false }).slice(0, 16).replace(/\//g, '-');
+                const title = document.getElementById('ticketTitle').value.trim();
+                const description = document.getElementById('ticketDescription').value.trim();
 
-            const newTicket = {
-                id: newId,
-                title: title,
-                category: category,
-                location: location,
-                reporterName: name,
-                reporterPhone: phone,
-                urgency: urgency,
-                status: 'PENDING',
-                description: description || '無特別補充說明。',
-                photo: uploadedImageBase64,
-                technician: '未指派',
-                createdAt: nowTime,
-                rating: 0,
-                feedback: '',
-                timeline: [
-                    { time: nowTime, text: `申請人 ${name} 提交報修工單。` }
-                ]
-            };
+                // Cross-browser safe date formatting
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
 
-            const tickets = getTickets();
-            tickets.unshift(newTicket);
-            saveTickets(tickets);
+                const dateStr = `${year}${month}${day}`;
+                const randomNum = Math.floor(100 + Math.random() * 900);
+                const newId = `FIX-${dateStr}-${randomNum}`;
+                const nowTime = `${year}-${month}-${day} ${hours}:${minutes}`;
 
-            closeNewTicketModal();
-            showToast("報修申請已順利送出！", "fa-circle-check text-emerald-400");
+                const newTicket = {
+                    id: newId,
+                    title: title,
+                    category: category,
+                    location: location,
+                    reporterName: name,
+                    reporterPhone: phone,
+                    urgency: urgency,
+                    status: 'PENDING',
+                    description: description || '無特別補充說明。',
+                    photo: uploadedImageBase64,
+                    technician: '未指派',
+                    createdAt: nowTime,
+                    rating: 0,
+                    feedback: '',
+                    timeline: [
+                        { time: nowTime, text: `申請人 ${name} 提交報修工單。` }
+                    ]
+                };
+
+                const tickets = getTickets();
+                tickets.unshift(newTicket);
+                
+                const savedSuccess = saveTickets(tickets);
+                if (savedSuccess) {
+                    closeNewTicketModal();
+                    showToast("報修申請已順利送出！", "fa-circle-check text-emerald-400");
+                }
+            } catch (err) {
+                console.error("提交失敗：", err);
+                alert("⚠️ 送出失敗：" + err.message);
+            }
         }
 
         function viewTicketDetails(id) {
@@ -1193,7 +1250,8 @@
             if (t) {
                 t.rating = score;
                 t.feedback = feedback;
-                const nowTime = new Date().toLocaleString('zh-TW', { hour12: false }).slice(0, 16).replace(/\//g, '-');
+                const now = new Date();
+                const nowTime = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
                 t.timeline.push({ time: nowTime, text: `報修人完成 ${score} 星滿意度評分。` });
                 saveTickets(tickets);
                 viewTicketDetails(id);
@@ -1207,7 +1265,8 @@
             const t = tickets.find(item => item.id === id);
             if (t) {
                 t.status = 'CANCELLED';
-                const nowTime = new Date().toLocaleString('zh-TW', { hour12: false }).slice(0, 16).replace(/\//g, '-');
+                const now = new Date();
+                const nowTime = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
                 t.timeline.push({ time: nowTime, text: `申請人自行撤銷報修。` });
                 saveTickets(tickets);
                 closeDetailTicketModal();
@@ -1243,7 +1302,8 @@
             const t = tickets.find(item => item.id === id);
 
             if (t) {
-                const nowTime = new Date().toLocaleString('zh-TW', { hour12: false }).slice(0, 16).replace(/\//g, '-');
+                const now = new Date();
+                const nowTime = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
                 t.status = status;
                 t.technician = technician;
 
