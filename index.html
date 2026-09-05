@@ -215,7 +215,7 @@
 
     <!-- Modal: User Account Management (Admin Only) -->
     <div id="userMgmtModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white">
                 <h3 class="font-bold text-lg flex items-center space-x-2">
                     <i class="fa-solid fa-users-gear text-purple-400"></i>
@@ -290,7 +290,7 @@
                         </h4>
                         <button onclick="exportUserAccountsCSV()" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-lg transition flex items-center gap-1">
                             <i class="fa-solid fa-file-export text-purple-600"></i>
-                            <span>匯出帳號清單</span>
+                            <span>匯出帳號清冊</span>
                         </button>
                     </div>
                     <div class="border border-slate-200 rounded-xl overflow-hidden">
@@ -298,6 +298,7 @@
                             <thead class="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
                                 <tr>
                                     <th class="py-2.5 px-3">帳號</th>
+                                    <th class="py-2.5 px-3">密碼 (點擊檢視)</th>
                                     <th class="py-2.5 px-3">同仁姓名 / 單位</th>
                                     <th class="py-2.5 px-3">聯絡電話</th>
                                     <th class="py-2.5 px-3">身份角色</th>
@@ -843,14 +844,16 @@
             confirmCallback = null;
         }
 
-        function showToastAlert(msg) {
+        function showToastAlert(msg, type = 'error') {
             const alertBox = document.createElement('div');
-            alertBox.className = 'fixed top-5 right-5 bg-red-600 text-white text-xs px-4 py-3 rounded-xl shadow-xl z-[70] transition-all duration-300 flex items-center space-x-2';
-            alertBox.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i><span>${msg}</span>`;
+            const bgClass = type === 'success' ? 'bg-emerald-600' : 'bg-red-600';
+            const iconClass = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
+            alertBox.className = `fixed top-5 right-5 ${bgClass} text-white text-xs px-4 py-3 rounded-xl shadow-xl z-[70] transition-all duration-300 flex items-center space-x-2`;
+            alertBox.innerHTML = `<i class="fa-solid ${iconClass} text-base"></i><span>${msg}</span>`;
             document.body.appendChild(alertBox);
             setTimeout(() => {
                 alertBox.remove();
-            }, 3000);
+            }, 3500);
         }
 
         // Initialize confirm modal event listener
@@ -1001,7 +1004,10 @@
             const pInput = document.getElementById('loginPassword').value.trim();
             const alertBox = document.getElementById('loginErrorAlert');
 
-            const matched = systemAccounts.find(a => a.username === uInput && a.password === pInput);
+            const matched = systemAccounts.find(a => 
+                String(a.username).trim().toLowerCase() === uInput.toLowerCase() && 
+                String(a.password).trim() === pInput
+            );
 
             if (matched) {
                 currentUser = { 
@@ -1096,16 +1102,39 @@
             document.getElementById('userMgmtModal').classList.add('hidden');
         }
 
+        function togglePasswordVisible(index) {
+            const el = document.getElementById(`pwd-display-${index}`);
+            const icon = document.getElementById(`pwd-icon-${index}`);
+            if (!el) return;
+            if (el.dataset.hidden === "true") {
+                el.textContent = el.dataset.realpwd;
+                el.dataset.hidden = "false";
+                if (icon) icon.className = "fa-solid fa-eye-slash text-slate-400 hover:text-slate-600";
+            } else {
+                el.textContent = "••••••••";
+                el.dataset.hidden = "true";
+                if (icon) icon.className = "fa-solid fa-eye text-slate-400 hover:text-slate-600";
+            }
+        }
+
         function renderUserList() {
             const tbody = document.getElementById('userAccountTableBody');
             tbody.innerHTML = '';
 
-            systemAccounts.forEach(acc => {
+            systemAccounts.forEach((acc, idx) => {
                 const tr = document.createElement('tr');
                 const isCurrentAdmin = acc.username === 'admin';
 
                 tr.innerHTML = `
                     <td class="py-2.5 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">${acc.username}</td>
+                    <td class="py-2.5 px-3 font-mono text-slate-600 whitespace-nowrap">
+                        <div class="flex items-center space-x-1.5">
+                            <span id="pwd-display-${idx}" data-realpwd="${acc.password}" data-hidden="true" class="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] min-w-[60px] inline-block text-center font-mono select-all">••••••••</span>
+                            <button type="button" onclick="togglePasswordVisible(${idx})" class="p-1" title="顯示/隱藏密碼">
+                                <i id="pwd-icon-${idx}" class="fa-solid fa-eye text-slate-400 hover:text-slate-600"></i>
+                            </button>
+                        </div>
+                    </td>
                     <td class="py-2.5 px-3 font-medium text-slate-700 whitespace-nowrap">${acc.name}</td>
                     <td class="py-2.5 px-3 text-slate-500 whitespace-nowrap">${acc.phone || '-'}</td>
                     <td class="py-2.5 px-3 whitespace-nowrap">
@@ -1131,7 +1160,7 @@
             const phone = document.getElementById('newAccPhone').value.trim();
             const role = document.getElementById('newAccRole').value;
 
-            if (systemAccounts.some(a => a.username === uName)) {
+            if (systemAccounts.some(a => String(a.username).toLowerCase() === uName.toLowerCase())) {
                 showToastAlert('此帳號名稱已存在，請使用其他帳號名稱！');
                 return;
             }
@@ -1151,6 +1180,7 @@
             document.getElementById('newAccPassword').value = '';
             document.getElementById('newAccName').value = '';
             document.getElementById('newAccPhone').value = '';
+            showToastAlert('成功建立新帳號！', 'success');
         }
 
         function deleteUserAccount(username) {
@@ -1194,6 +1224,31 @@
             link.click();
         }
 
+        /* Helper to parse CSV lines safely with quotes */
+        function parseCSVLine(text) {
+            const result = [];
+            let cell = '';
+            let inQuotes = false;
+            for (let i = 0; i < text.length; i++) {
+                const c = text[i];
+                if (c === '"') {
+                    if (inQuotes && text[i + 1] === '"') {
+                        cell += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (c === ',' && !inQuotes) {
+                    result.push(cell.trim());
+                    cell = '';
+                } else {
+                    cell += c;
+                }
+            }
+            result.push(cell.trim());
+            return result;
+        }
+
         function handleBatchUserImport(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -1201,7 +1256,8 @@
             const reader = new FileReader();
             reader.onload = function(evt) {
                 try {
-                    const text = evt.target.result;
+                    // Remove UTF-8 BOM if present
+                    const text = evt.target.result.replace(/^\uFEFF/, '');
                     const lines = text.split(/\r\n|\n/);
                     if (lines.length < 2) {
                         showToastAlert('CSV 檔案內容格式不正確或內容為空！');
@@ -1215,19 +1271,19 @@
                         const line = lines[i].trim();
                         if (!line) continue;
 
-                        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
-                        if (cols.length < 3) continue;
+                        const cols = parseCSVLine(line);
+                        if (cols.length < 2) continue;
 
-                        const username = cols[0];
-                        const password = cols[1];
-                        const name = cols[2] || '';
-                        const phone = cols[3] || '';
-                        let role = (cols[4] || 'user').toLowerCase();
+                        const username = String(cols[0] || '').trim();
+                        const password = String(cols[1] || '').trim();
+                        const name = String(cols[2] || username).trim(); // Fallback to username if name is empty
+                        const phone = String(cols[3] || '').trim();
+                        let role = String(cols[4] || 'user').trim().toLowerCase();
                         if (role !== 'admin' && role !== 'user') role = 'user';
 
-                        if (!username || !password || !name) continue;
+                        if (!username || !password) continue;
 
-                        const existingIdx = systemAccounts.findIndex(a => a.username === username);
+                        const existingIdx = systemAccounts.findIndex(a => String(a.username).toLowerCase() === username.toLowerCase());
                         if (existingIdx >= 0) {
                             systemAccounts[existingIdx] = { username, password, role, name, phone };
                             updatedCount++;
@@ -1242,11 +1298,7 @@
                     e.target.value = '';
 
                     const toastMsg = `批次匯入完成！成功新增 ${importedCount} 筆，更新 ${updatedCount} 筆帳號。`;
-                    const alertBox = document.createElement('div');
-                    alertBox.className = 'fixed top-5 right-5 bg-emerald-600 text-white text-xs px-4 py-3 rounded-xl shadow-xl z-[70] transition-all duration-300 flex items-center space-x-2';
-                    alertBox.innerHTML = `<i class="fa-solid fa-circle-check text-base"></i><span>${toastMsg}</span>`;
-                    document.body.appendChild(alertBox);
-                    setTimeout(() => alertBox.remove(), 4000);
+                    showToastAlert(toastMsg, 'success');
 
                 } catch (err) {
                     console.error(err);
@@ -1724,7 +1776,7 @@
             document.execCommand('copy');
             document.body.removeChild(tempInput);
 
-            showToastAlert('已成功複製網址到剪貼簿！');
+            showToastAlert('已成功複製網址到剪貼簿！', 'success');
         }
 
         function printQrCode() {
